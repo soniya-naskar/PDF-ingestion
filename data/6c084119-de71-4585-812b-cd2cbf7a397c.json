@@ -1,0 +1,9 @@
+{
+  "id": "6c084119-de71-4585-812b-cd2cbf7a397c",
+  "metadata": {
+    "filename": "simple_text_test.pdf",
+    "size": 2045,
+    "ingested_at": 1762261170
+  },
+  "text": "This is a simple PDF document created for parsing tests.\nIt contains plain text paragraphs with minimal formatting. You can use this file to test text extraction\nor PDF parsing scripts.\nExample section headers: 1. Introduction 2. Methods 3. Results 4. Conclusion\nEach paragraph below is meant to simulate typical document text.\nIntroduction: This document is intended for developers and testers to check if their PDF parsing\ntools can extract basic text content correctly.\nMethods: We have included basic sections, lists, and sentences. No special formatting or images\nare used.\nResults: The extracted text should match this content closely.\nConclusion: If your parser outputs this text with minimal differences, your extraction tool works as\nexpected.\n"
+}

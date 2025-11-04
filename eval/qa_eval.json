@@ -1,0 +1,32 @@
+[
+  {
+    "id": 1,
+    "question": "What is the purpose of this document?",
+    "expected_answer": "To test PDF text extraction or parsing scripts."
+  },
+  {
+    "id": 2,
+    "question": "List the section headers mentioned in the document.",
+    "expected_answer": "Introduction, Methods, Results, Conclusion."
+  },
+  {
+    "id": 3,
+    "question": "What is described in the Introduction section?",
+    "expected_answer": "It explains that the document is for developers and testers to check PDF parsing tools."
+  },
+  {
+    "id": 4,
+    "question": "What does the Methods section include?",
+    "expected_answer": "It includes basic sections, lists, and sentences without special formatting or images."
+  },
+  {
+    "id": 5,
+    "question": "What is stated in the Results section?",
+    "expected_answer": "The extracted text should match the content closely."
+  },
+  {
+    "id": 6,
+    "question": "What is the conclusion of this document?",
+    "expected_answer": "If the parser outputs this text correctly, the extraction tool works as expected."
+  }
+]

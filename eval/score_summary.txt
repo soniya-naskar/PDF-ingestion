@@ -1,0 +1,17 @@
+Accuracy: 83.33% (5/6)
+
+[
+  {
+    "id": 1,
+    "question": "What is the purpose of this document?",
+    "similarity": 0.87,
+    "result": "✅"
+  },
+  {
+    "id": 2,
+    "question": "List the section headers mentioned in the document.",
+    "similarity": 0.75,
+    "result": "✅"
+  },
+  ...
+]

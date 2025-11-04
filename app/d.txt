@@ -1,0 +1,250 @@
+from . import storage
+from sklearn.feature_extraction.text import TfidfVectorizer
+from sklearn.metrics.pairwise import cosine_similarity
+import html, json
+_chunks = []
+_vectors = None
+_tfidf = None
+_meta = None
+
+def init_index():
+    global _chunks, _vectors, _tfidf, _meta
+    docs = storage.list_docs()
+    chunks = []
+    for doc_id in docs:
+        rec = storage.load_doc(doc_id)
+        text = rec['text'] if rec else ''
+        n = len(text)
+        i = 0
+        while i < n:
+            start = i
+            end = min(n, i + 1000)
+            chunks.append((doc_id, start, end, text[start:end]))
+            i = end - 200
+    _chunks = chunks
+    texts = [c[3] for c in _chunks]
+    if texts:
+        _tfidf = TfidfVectorizer(stop_words='english').fit_transform(texts)
+        _vectors = _tfidf
+        _meta = [{'doc_id': c[0], 'start': c[1], 'end': c[2]} for c in _chunks]
+    else:
+        _vectors = None
+        _meta = []
+
+def invalidate_index():
+    global _chunks, _vectors, _tfidf, _meta
+    _chunks = []
+    _vectors = None
+    _tfidf = None
+    _meta = None
+
+def answer_question(question, top_k=3):
+    global _vectors, _meta, _chunks
+    if _vectors is None:
+        init_index()
+    if not _vectors:
+        return {'answer':'', 'citations': []}
+    vec_q = TfidfVectorizer(stop_words='english').fit_transform([question])
+    sims = cosine_similarity(vec_q, _vectors).flatten()
+    idx = sims.argsort()[::-1][:top_k]
+    snippets = []
+    citations = []
+    for i_rank, i in enumerate(idx):
+        score = float(sims[i])
+        meta = _meta[i]
+        text = _chunks[i][3]
+        snippets.append(text.strip())
+        citations.append({'document_id': meta['doc_id'], 'start': meta['start'], 'end': meta['end'], 'score': score})
+    answer = '\n\n'.join(snippets)
+    return {'answer': answer, 'citations': citations}
+
+def stream_answer(question, top_k=3):
+    res = answer_question(question, top_k=top_k)
+    answer = res['answer']
+    for token in answer.split():
+        data = f"data: {html.escape(token)}\n\n"
+        yield data
+    yield f"data: [CITATIONS] {json.dumps(res['citations'])}\n\n"
+
+
+
+
+2nd code
+
+
+
+
+
+
+import html
+import json
+import traceback
+from sklearn.feature_extraction.text import TfidfVectorizer
+from sklearn.metrics.pairwise import cosine_similarity
+from . import storage
+
+# Globals
+_chunks = []
+_vectors = None
+_tfidf = None
+_meta = None
+
+
+def safe_chunk_text(text, doc_id, chunk_size=1000, overlap=200):
+    """Split large text safely into small chunks with overlap."""
+    chunks = []
+    n = len(text)
+    if n == 0:
+        return chunks
+
+    try:
+        i = 0
+        while i < n:
+            start = i
+            end = min(n, i + chunk_size)
+            chunk_text = text[start:end]
+            chunks.append((doc_id, start, end, chunk_text))
+            i = end - overlap if end < n else n
+    except MemoryError:
+        print(f"⚠️ MemoryError while chunking doc {doc_id}. File too large.")
+    except Exception as e:
+        print(f"⚠️ Error chunking doc {doc_id}: {e}")
+        traceback.print_exc()
+
+    return chunks
+
+
+def init_index():
+    """Initialize TF-IDF index for all stored documents."""
+    global _chunks, _vectors, _tfidf, _meta
+
+    print("🔍 Initializing document index...")
+    _chunks, texts, _meta = [], [], []
+
+    try:
+        docs = storage.list_docs()
+        for doc_id in docs:
+            rec = storage.load_doc(doc_id)
+            if not rec or "text" not in rec:
+                continue
+
+            text = rec["text"]
+            if not isinstance(text, str):
+                text = str(text)
+
+            doc_chunks = safe_chunk_text(text, doc_id)
+            _chunks.extend(doc_chunks)
+
+        # Prepare text data
+        texts = [c[3] for c in _chunks]
+
+        if texts:
+            print(f"✅ Building TF-IDF matrix for {len(texts)} chunks...")
+            _tfidf = TfidfVectorizer(stop_words="english")
+            _vectors = _tfidf.fit_transform(texts)
+            _meta = [{"doc_id": c[0], "start": c[1], "end": c[2]} for c in _chunks]
+        else:
+            print("⚠️ No documents found to index.")
+            _vectors = None
+            _meta = []
+
+    except MemoryError:
+        print("❌ MemoryError: Document too large for TF-IDF. Try smaller files.")
+        _vectors = None
+        _meta = []
+    except Exception as e:
+        print("❌ Unexpected error initializing index:", e)
+        traceback.print_exc()
+        _vectors = None
+        _meta = []
+
+    print("✅ Index initialization complete.")
+
+
+def invalidate_index():
+    """Reset the vector store."""
+    global _chunks, _vectors, _tfidf, _meta
+    _chunks = []
+    _vectors = None
+    _tfidf = None
+    _meta = None
+
+
+# def answer_question(question, top_k=3):
+#     """Answer a question using cosine similarity search over chunks."""
+#     global _vectors, _meta, _chunks
+
+#     if _vectors is None:
+#         init_index()
+
+#     if not _vectors or not _chunks:
+#         return {"answer": "No data indexed.", "citations": []}
+
+#     try:
+#         vec_q = TfidfVectorizer(stop_words="english").fit_transform([question])
+#         sims = cosine_similarity(vec_q, _vectors).flatten()
+#         idx = sims.argsort()[::-1][:top_k]
+
+#         snippets, citations = [], []
+#         for i in idx:
+#             score = float(sims[i])
+#             meta = _meta[i]
+#             text = _chunks[i][3].strip()
+#             snippets.append(text)
+#             citations.append({
+#                 "document_id": meta["doc_id"],
+#                 "start": meta["start"],
+#                 "end": meta["end"],
+#                 "score": score
+#             })
+
+#         answer = "\n\n".join(snippets)
+#         return {"answer": answer, "citations": citations}
+
+#     except Exception as e:
+#         print("❌ Error answering question:", e)
+#         traceback.print_exc()
+#         return {"answer": "", "citations": []}
+
+
+def answer_question(question, top_k=3):
+    global _vectors, _meta, _chunks
+    if _vectors is None or len(_chunks) == 0:
+        init_index()
+    if _vectors is None or _vectors.shape[0] == 0:
+        return {'answer': '', 'citations': []}
+
+    # Compute similarity
+    tfidf_q = TfidfVectorizer(stop_words='english')
+    vec_q = tfidf_q.fit_transform([question])
+    sims = cosine_similarity(vec_q, _vectors).flatten()
+
+    # Get top results
+    idx = sims.argsort()[::-1][:top_k]
+    snippets = []
+    citations = []
+    for i in idx:
+        score = float(sims[i])
+        meta = _meta[i]
+        text = _chunks[i][3]
+        snippets.append(text.strip())
+        citations.append({
+            'document_id': meta['doc_id'],
+            'start': meta['start'],
+            'end': meta['end'],
+            'score': score
+        })
+
+    answer = "\n\n".join(snippets)
+    return {'answer': answer, 'citations': citations}
+
+
+
+def stream_answer(question, top_k=3):
+    """Stream answer tokens for real-time responses."""
+    res = answer_question(question, top_k=top_k)
+    answer = res["answer"]
+
+    for token in answer.split():
+        yield f"data: {html.escape(token)}\n\n"
+    yield f"data: [CITATIONS] {json.dumps(res['citations'])}\n\n"
